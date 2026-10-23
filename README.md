@@ -1,8 +1,9 @@
-**Destructive reset - deletes all data in this Compose project's database volume:**
+# ShortStack
 
 ShortStack is a Java/Spring Boot URL-shortening REST API portfolio project.
 It demonstrates API design, relational persistence and backend correctness.
-The application scaffold and database infrastructure are implemented; no link endpoints exist.
+The application scaffold, database infrastructure and persistence model/repository
+are implemented; no link endpoints exist.
 See [PROJECT.md](PROJECT.md) for scope and [the API contract](docs/api-contract.md),
 [domain rules](docs/domain-design.md) and [persistence design](docs/persistence-design.md)
 for the architecture approved through Issue #1.
@@ -80,6 +81,7 @@ on Windows PowerShell:
 ```powershell
 .\mvnw.cmd clean verify
 .\mvnw.cmd test
+.\mvnw.cmd -Dtest=ShortLinkRepositoryTests test
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -97,8 +99,13 @@ java -jar target/shortstack-0.0.1-SNAPSHOT.jar
 The web server uses port 8080 by default. Stop it with Ctrl+C. A `404` at `/` is
 expected because there are no business controllers yet. The baseline test loads
 the Spring application context, connects to PostgreSQL and runs Flyway. It does
-not exercise future link functionality. These tests currently use the configured
-local database, so use a dedicated development database, never shared/production data.
+not exercise future link functionality. Repository tests persist and reload rows,
+check absent/case-sensitive lookups, round-trip microsecond timestamps and null
+expiration, and flush duplicate inserts to verify `uq_short_link_code`. Each runs
+in a rollback-only test transaction; no test records remain, although PostgreSQL
+identity sequences may advance. These tests use the configured local database, so
+use a dedicated development database, never shared/production data. No H2,
+Testcontainers or new testing infrastructure is required.
 
 ## Verify migrations and schema
 
@@ -121,11 +128,12 @@ additional domain feature.
 
 Hibernate uses `ddl-auto=validate`; automatic schema creation/updates and Spring
 SQL-script initialisation are disabled. Open Session in View is disabled, and
-PostgreSQL sessions/JDBC timestamp handling use UTC. Before Issue #4 adds a JPA
-entity, Hibernate has no `ShortLink` mapping to compare against the table. Its
-successful startup is therefore **not** proof of table/constraint correctness;
-inspect the database directly and retain PostgreSQL integration checks. This issue
-does not create an entity or repository to work around that limitation.
+PostgreSQL sessions/JDBC timestamp handling use UTC. The `persistence.ShortLink`
+entity now maps the existing five-column table, and context startup validates that
+mapping against the Flyway-managed schema. Hibernate validation does not verify
+every check constraint, collation or uniqueness rule; direct database inspection
+and PostgreSQL integration checks remain necessary. `ShortLinkRepository` extends
+Spring Data JPA's standard operations and adds only exact `findByCode` lookup.
 
 ## Stop PostgreSQL and persistent data
 
@@ -163,8 +171,9 @@ machine-specific paths or speculative deployment profiles. Local environment and
 Dependencies now include Spring MVC, Spring Data JPA/Hibernate, the PostgreSQL JDBC
 driver, Spring Boot's Flyway starter plus Flyway's PostgreSQL module, and the test
 starter. All dependency versions remain managed by Spring Boot 4.1.2. No H2,
-database auto-configuration exclusions or business classes are introduced. CI and
-all business functionality remain outside Issue #3.
+database auto-configuration exclusions or business rules are introduced. The entity
+and repository remain persistence concerns; CI and all business functionality
+remain outside Issue #4.
 
 V1 is intended for local development and portfolio demonstration. Its approved
 unauthenticated API design is unsuitable for unrestricted public deployment
