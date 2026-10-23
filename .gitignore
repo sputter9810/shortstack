@@ -1,0 +1,30 @@
+# Maven and Java build output
+target/
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+
+# IDE metadata
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+bin/
+
+# Local configuration and environment files
+.env
+.env.*
+!.env.example
+application-local.properties
+application-local.yml
+application-local.yaml
+
+# OS-generated files
+.DS_Store
+Thumbs.db
