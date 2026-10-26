@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_NAME: shortstack_ci
+      DB_USERNAME: shortstack_ci
+      # Non-sensitive example used only by this job's temporary database.
+      DB_PASSWORD: ci_only_temporary_password
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: shortstack_ci
+          POSTGRES_USER: shortstack_ci
+          POSTGRES_PASSWORD: ci_only_temporary_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shortstack_ci -d shortstack_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: pom.xml
+      - name: Build and test
+        run: ./mvnw -B -ntp clean verify

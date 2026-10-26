@@ -107,6 +107,24 @@ identity sequences may advance. These tests use the configured local database, s
 use a dedicated development database, never shared/production data. No H2,
 Testcontainers or new testing infrastructure is required.
 
+## Continuous integration
+
+[The CI workflow](.github/workflows/ci.yml) runs on pull requests targeting `main`
+and pushes to `main`. Its single build-and-test job uses `ubuntu-latest`, Eclipse
+Temurin Java 21, Maven dependency caching and the committed executable Maven Wrapper:
+
+```sh
+./mvnw -B -ntp clean verify
+```
+
+GitHub Actions starts a health-checked PostgreSQL 17 service with a temporary
+database and non-sensitive CI-only example credentials, independent of local `.env`
+values. The job supplies all five `DB_*` environment variables. Existing tests,
+Flyway V1 migrations and Hibernate validation run normally; compilation, migration
+or test failures fail the job. The service and its data are discarded after the
+job. CI does not deploy or publish images. Local verification still requires Java
+21 and a configured PostgreSQL 17 database as described above.
+
 ## Verify migrations and schema
 
 Flyway owns schema creation. Spring Boot runs
@@ -172,8 +190,8 @@ Dependencies now include Spring MVC, Spring Data JPA/Hibernate, the PostgreSQL J
 driver, Spring Boot's Flyway starter plus Flyway's PostgreSQL module, and the test
 starter. All dependency versions remain managed by Spring Boot 4.1.2. No H2,
 database auto-configuration exclusions or business rules are introduced. The entity
-and repository remain persistence concerns; CI and all business functionality
-remain outside Issue #4.
+and repository remain persistence concerns. Baseline CI runs the existing tests;
+business functionality remains outside the completed foundation issues.
 
 V1 is intended for local development and portfolio demonstration. Its approved
 unauthenticated API design is unsuitable for unrestricted public deployment
