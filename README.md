@@ -2,8 +2,8 @@
 
 ShortStack is a Java/Spring Boot URL-shortening REST API portfolio project.
 It demonstrates API design, relational persistence and backend correctness.
-The application scaffold, database infrastructure and persistence model/repository
-are implemented; no link endpoints exist.
+The application scaffold, database infrastructure, persistence model/repository
+and generated-code persistence strategy are implemented; no link endpoints exist.
 See [PROJECT.md](PROJECT.md) for scope and [the API contract](docs/api-contract.md),
 [domain rules](docs/domain-design.md) and [persistence design](docs/persistence-design.md)
 for the architecture approved through Issue #1.
@@ -107,6 +107,44 @@ identity sequences may advance. These tests use the configured local database, s
 use a dedicated development database, never shared/production data. No H2,
 Testcontainers or new testing infrastructure is required.
 
+## Generated-code persistence
+
+`ShortCodeGenerator` produces eight Base62 characters using `SecureRandom.nextInt(62)`
+for unbiased character selection. It redraws the reserved name `actuator`
+case-insensitively before returning a candidate; the remaining reserved names do
+not fit this generated format. It performs no database access or collision handling.
+
+`GeneratedLinkService.create` accepts destination URL, creation instant and optional
+expiration instant supplied by a future validated creation flow. It preserves those
+values across at most five total insertion attempts, generating a new candidate
+for each attempt. It does not validate URLs or check expiration. A separate Spring
+bean, `GeneratedLinkInserter`, creates and flushes a fresh entity inside
+`REQUIRES_NEW`. Its transaction proxy finishes commit/rollback before the
+coordinator receives the result or exception. The coordinator uses `NEVER` to reject
+an outer transaction rather than accidentally sharing it across retries.
+
+Only a translated integrity failure with Hibernate constraint name
+`uq_short_link_code` and JDBC SQLSTATE `23505` is retried. The cause-chain search
+handles nested wrappers and cycles; missing or unrelated evidence is propagated.
+Other persistence/transaction failures are not retried. PostgreSQL remains the
+uniqueness authority; there is no check-then-insert query. Five collisions throw
+`CodeGenerationExhaustedException`; HTTP mapping belongs to a later issue.
+
+The normal `clean verify` command includes generator/coordinator unit tests and
+PostgreSQL integration tests. Focused commands on PowerShell are:
+
+```powershell
+.\mvnw.cmd '-Dtest=ShortCodeGeneratorTests,GeneratedLinkServiceTests' test
+.\mvnw.cmd -Dtest=GeneratedLinkServiceIntegrationTests test
+```
+
+Unit tests need no database. Integration tests use the same PostgreSQL/environment
+configuration described above and exercise the real Spring transaction proxies.
+Unlike rollback-only repository tests, these insertion attempts commit independently;
+each integration test explicitly deletes only rows with its unique test-owned
+destination marker in cleanup, including after failures. Identity sequences may
+advance. No new database or testing dependencies are required.
+
 ## Continuous integration
 
 [The CI workflow](.github/workflows/ci.yml) runs on pull requests targeting `main`
@@ -189,9 +227,10 @@ machine-specific paths or speculative deployment profiles. Local environment and
 Dependencies now include Spring MVC, Spring Data JPA/Hibernate, the PostgreSQL JDBC
 driver, Spring Boot's Flyway starter plus Flyway's PostgreSQL module, and the test
 starter. All dependency versions remain managed by Spring Boot 4.1.2. No H2,
-database auto-configuration exclusions or business rules are introduced. The entity
-and repository remain persistence concerns. Baseline CI runs the existing tests;
-business functionality remains outside the completed foundation issues.
+database auto-configuration exclusions or new dependencies are introduced by the
+generated-code work. The entity and repository remain persistence concerns.
+Baseline CI includes the generated-code tests; API endpoints and other link
+business operations remain future work.
 
 V1 is intended for local development and portfolio demonstration. Its approved
 unauthenticated API design is unsuitable for unrestricted public deployment
