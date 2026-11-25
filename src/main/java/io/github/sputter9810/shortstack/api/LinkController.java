@@ -1,0 +1,25 @@
+package io.github.sputter9810.shortstack.api;
+
+import io.github.sputter9810.shortstack.service.LinkService;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/links")
+public class LinkController {
+    private final LinkService links;
+
+    public LinkController(LinkService links) {
+        this.links = links;
+    }
+
+    @PostMapping(consumes = "application/json", produces = "application/json")
+    public ResponseEntity<LinkMetadata> create(@RequestBody CreateLinkRequest request) {
+        LinkMetadata result = links.create(request.destinationUrl());
+        return ResponseEntity.created(links.metadataLocation(result.code())).cacheControl(CacheControl.noStore()).body(result);
+    }
+}

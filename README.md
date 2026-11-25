@@ -3,7 +3,11 @@
 ShortStack is a Java/Spring Boot URL-shortening REST API portfolio project.
 It demonstrates API design, relational persistence and backend correctness.
 The application scaffold, database infrastructure, persistence model/repository
-and generated-code persistence strategy are implemented; no link endpoints exist.
+and generated-code persistence strategy are implemented. `POST /api/links` now
+creates generated links and returns `201` metadata with a metadata `Location`.
+Set `SHORTSTACK_BASE_URL` to the external HTTP(S) origin (default
+`http://localhost:8080`); response URLs never trust the request Host header.
+Other V1 operations are introduced in the subsequent issue branches.
 See [PROJECT.md](PROJECT.md) for scope and [the API contract](docs/api-contract.md),
 [domain rules](docs/domain-design.md) and [persistence design](docs/persistence-design.md)
 for the architecture approved through Issue #1.
