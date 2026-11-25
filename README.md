@@ -2,12 +2,11 @@
 
 ShortStack is a Java/Spring Boot URL-shortening REST API portfolio project.
 It demonstrates API design, relational persistence and backend correctness.
-The application scaffold, database infrastructure, persistence model/repository
-and generated-code persistence strategy are implemented. `POST /api/links` now
-creates generated links and returns `201` metadata with a metadata `Location`.
+V1 implements generated links, optional custom aliases and expiration, metadata,
+redirects and hard deletion, backed by PostgreSQL and database-enforced uniqueness.
+The implementation is prepared for human review; it is not declared portfolio-complete.
 Set `SHORTSTACK_BASE_URL` to the external HTTP(S) origin (default
 `http://localhost:8080`); response URLs never trust the request Host header.
-Other V1 operations are introduced in the subsequent issue branches.
 See [PROJECT.md](PROJECT.md) for scope and [the API contract](docs/api-contract.md),
 [domain rules](docs/domain-design.md) and [persistence design](docs/persistence-design.md)
 for the architecture approved through Issue #1.
@@ -110,6 +109,88 @@ in a rollback-only test transaction; no test records remain, although PostgreSQL
 identity sequences may advance. These tests use the configured local database, so
 use a dedicated development database, never shared/production data. No H2,
 Testcontainers or new testing infrastructure is required.
+
+## API usage
+
+The examples assume the application is running on `http://localhost:8080`.
+PowerShell creates a generated link, inspects metadata, observes the redirect
+without following it, and deletes the link:
+
+```powershell
+$link = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/links `
+    -ContentType application/json -Body '{"destinationUrl":"https://example.org/articles?id=42#intro"}'
+$link
+Invoke-RestMethod -Uri "http://localhost:8080/api/links/$($link.code)"
+curl.exe --include "http://localhost:8080/$($link.code)"
+Invoke-WebRequest -Method Delete -Uri "http://localhost:8080/api/links/$($link.code)"
+```
+
+Creation returns `201`, JSON metadata and a `Location` identifying the metadata
+resource. `shortUrl` identifies the redirect route. Metadata includes `code`,
+`shortUrl`, `destinationUrl`, `createdAt`, nullable `expiresAt` and derived `expired`;
+it never includes the database ID. Representative JSON appears in the
+[API contract](docs/api-contract.md).
+
+Create an alias with future expiration (use a different alias if already present):
+
+```powershell
+$aliasBody = @{
+    destinationUrl = 'https://example.org/launch'
+    customAlias = 'launch-demo'
+    expiresAt = [DateTime]::UtcNow.AddDays(1).ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'")
+} | ConvertTo-Json
+$aliasLink = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/links `
+    -ContentType application/json -Body $aliasBody
+Invoke-WebRequest -Method Delete -Uri "http://localhost:8080/api/links/$($aliasLink.code)"
+```
+
+| Operation | Success | Missing/deleted | Existing expired row |
+|---|---|---|---|
+| POST `/api/links` | `201`, metadata | N/A | Past/equal requested expiry rejected with `400` |
+| GET `/api/links/{code}` | `200`, metadata | `404 LINK_NOT_FOUND` | `200`, `expired: true` |
+| GET `/{code}` | Empty `302`, stored destination Location | `404`, no Location | `410 LINK_EXPIRED`, no Location |
+| DELETE `/api/links/{code}` | Empty `204` | `404` (including repeated DELETE) | Empty `204` |
+
+Every application response uses `Cache-Control: no-store`. Redirects preserve the
+stored destination's query/fragment and ignore short-URL query parameters. Hard
+deletion releases a code; an old short URL can eventually resolve to a new
+destination after reuse. Expired but undeleted codes remain reserved.
+
+Destination URLs must be absolute HTTP(S), 1–2048 ASCII characters, with a valid
+host/optional port and no embedded user information, whitespace, controls or
+backslashes. Supply international hosts in punycode and non-ASCII components
+percent-encoded. Validation never fetches a destination and does not guarantee
+safety or trustworthiness. Values are not trimmed or rewritten.
+
+Aliases are case-sensitive, 3–32 ASCII letters/digits/underscores/hyphens. Reserved
+names are rejected case-insensitively. A duplicate alias returns `409 ALIAS_CONFLICT`
+without retry. Expiration is optional RFC 3339 with an explicit offset, at most six
+fractional digits and a strictly future instant at creation validation. Responses
+normalise timestamps to UTC with six fractional digits. A link is expired at
+`now >= expiresAt`; no background deletion occurs.
+
+Errors use `timestamp`, `status`, `error`, `message`, `path` (without query), and
+`violations` (always an array). Invalid field values use `400 VALIDATION_FAILED`;
+malformed JSON, unknown properties and wrong JSON field types use
+`400 INVALID_REQUEST`. Exhausted generation and recognised database unavailability
+use controlled `503`; unexpected failures use sanitised `500`. SQL, stack traces
+and supplied values are not returned in errors. See the full
+[failure table](docs/api-contract.md#structured-failures) for method/media/route cases.
+
+## Architecture
+
+`LinkController` and `RedirectController` handle HTTP and DTOs. `LinkService` owns
+creation, alias policy, metadata, resolution, expiry and deletion, using an injected
+UTC clock. `GeneratedLinkService` coordinates generated allocation through a
+separate transactional inserter. `ShortLinkRepository` performs persistence, while
+Flyway and PostgreSQL own the schema/invariants. Advice, a fallback error controller
+and a no-store filter keep HTTP failures consistent. No entity is an API contract.
+
+The internal model has only an identity ID, code, destination and two timestamps;
+there is no active flag, owner, analytics or alias-provenance state. Read transactions
+are short; deletion is a single affected-row-count write. No transaction spans HTTP
+response delivery. [The persistence design](docs/persistence-design.md) and
+[correctness review](docs/correctness-review.md) explain constraints and races.
 
 ## Generated-code persistence
 
@@ -218,7 +299,7 @@ docker compose up -d --wait postgres
 Then start the application/build again to apply Flyway to the empty database.
 Do not use global Docker volume pruning as a reset procedure.
 
-## Configuration and issue boundary
+## Configuration and V1 limits
 
 Use Spring Boot's external configuration conventions: environment variables,
 command-line arguments or external configuration files. For example, set
@@ -240,11 +321,16 @@ V1 is intended for local development and portfolio demonstration. Its approved
 unauthenticated API design is unsuitable for unrestricted public deployment
 without additional security controls.
 
-GET /api/links/{code} returns stored metadata with 200, or a structured LINK_NOT_FOUND 404. It does not redirect.
-GET /{code} returns an empty 302 redirect to the stored destination; missing links return 404 without Location.
-POST accepts optional customAlias: 3–32 ASCII letters, digits, underscores or hyphens; reserved names are rejected, exact duplicates return 409.
-POST accepts optional expiresAt (RFC 3339 with explicit offset, at most six fractional digits, strictly future). Expired redirects return 410; metadata stays available with expired=true.
-DELETE /api/links/{code} hard-deletes active or expired links with empty 204; absent/repeated deletion returns 404. Deleted codes may be reused.
-Request JSON rejects unknown fields and non-string field values. Invalid URL/alias/expiration values use VALIDATION_FAILED; malformed JSON uses INVALID_REQUEST. Application errors use the documented sanitized envelope and no-store.
-Full clean verify includes real HTTP/PostgreSQL lifecycle tests and a Flyway test using an isolated temporary schema. These tests require the configured development login to create/drop its own test schema (the provided local Compose login supports this).
-See [the correctness review](docs/correctness-review.md) for coordinated concurrency tests, transaction evidence and the RFC3339 offset regression.
+Full verification includes real HTTP/PostgreSQL lifecycle tests and a Flyway test
+using an isolated temporary schema. The configured development login needs permission
+to create/drop its own test schema (the provided local Compose login supports this).
+Test fixtures clean only owned records/schema, never unrelated development data.
+The suite includes generation/coordinator unit tests, HTTP validation/error tests,
+repository/transaction/migration tests, lifecycle tests and coordinated races.
+Coverage percentages and production throughput were not measured.
+
+V1 excludes accounts, frontend, analytics, distributed caches, deployment and rate
+limiting infrastructure. It does not promise exactly-once POST delivery or revoke
+redirects already read before deletion. Licensing and final portfolio acceptance
+remain owner decisions; no licence is silently selected by the implementation.
+See [the execution ledger](docs/execution-ledger.md) for the review stack and gates.

@@ -1,8 +1,8 @@
 # V1 domain rules and code allocation
 
 **Status: Code generation, alias rules, collision policy, URL validation,
-expiration, hard deletion and reuse are approved by Sam. Documentation revisions
-await final verification; Issue #1 remains in Review.** Issue #1,
+expiration, hard deletion and reuse were approved through closed Issue #1.**
+Implementation is on the V1 review stack; final acceptance remains human-owned. Issue #1,
 17 October 2026. Companion documents: [API](api-contract.md),
 [persistence and review](persistence-design.md). Approval records the architectural
 decisions; it does not accept these documentation revisions or authorise starting
@@ -164,5 +164,6 @@ hard deletion stay within scope. No unresolved contradiction was found. The owne
 has approved the generation and alias rules, shared case-sensitive uniqueness,
 URL validation limits, bounded independent-transaction retries, expiration rules,
 accessible expired metadata, unauthenticated deletion, and code reuse. The
-documentation revision and complete Issue #1 still await final human verification;
-see the persistence document's review handover for approval scope.
+implementation and complete V1 project still await final human verification;
+see the execution ledger for the current review stack. Issue #1's original
+documentation review has since been completed and merged.
