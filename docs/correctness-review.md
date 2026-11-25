@@ -1,16 +1,18 @@
 # Concurrency and correctness review
 
-Prepared for Issue 15, 25 November 2026. Implementation evidence awaits Sam's
-review and explanation; this is not final acceptance.
+This document explains the concurrency guarantees, transaction boundaries and
+edge cases of the implemented V1 API. It complements the
+[persistence design](persistence-design.md) and [domain rules](domain-design.md).
 
 ## Database arbitration and transaction boundaries
 
 PostgreSQL's nondeferrable `uq_short_link_code` constraint is the shared authority
 for generated codes and aliases, including expired rows. There is no availability
-check before insertion. GeneratedLinkService retains Issue 6's five attempts,
-NEVER outer-transaction contract and exact Hibernate/JDBC constraint/SQLSTATE
-classification. GeneratedLinkInserter remains a separate proxied Spring bean with
-REQUIRES_NEW and saveAndFlush. Failures leave the insertion proxy after rollback;
+check before insertion. A prior availability lookup could race with another
+request inserting the same code. `GeneratedLinkService` uses five attempts,
+a `NEVER` outer-transaction contract and exact Hibernate/JDBC constraint/SQLSTATE
+classification. `GeneratedLinkInserter` is a separate proxied Spring bean with
+`REQUIRES_NEW` and `saveAndFlush`. Failures leave the insertion proxy after rollback;
 success returns after commit. Fresh entities are created per insertion attempt.
 
 `ConcurrencyReviewTests` coordinates two threads at the candidate-generation
@@ -45,32 +47,26 @@ already issued redirect. This allowed interaction does not require stronger lock
 Fresh lookups after commit see absence unless reuse intervenes. No test claims
 revocation of an in-flight response or exactly-once HTTP delivery.
 
-## Defect found and regression evidence
+## RFC 3339 offset handling
 
-The first expiration parser used Java OffsetDateTime, whose numeric offsets stop
-at 18 hours. The approved contract promises RFC 3339 numeric offsets, whose grammar
-allows hours 00–23 and minutes 00–59. The parser now validates those components and
+Java OffsetDateTime restricts numeric offsets to 18 hours. The RFC 3339 contract
+allows hours 00–23 and minutes 00–59. The parser validates those components and
 converts the local date-time to an instant with arithmetic, without relaxing date,
 future, leap-second, precision or year-range checks. Regression tests cover positive
 and negative 23:59, invalid 24:00/00:60 and the RFC's lowercase t/z forms.
-This fixes contract compliance; it does not change the architecture.
 Reference: [RFC 3339 section 5.6](https://www.rfc-editor.org/rfc/rfc3339.html#section-5.6).
 
 ## Quality and limits
 
-- Java 21 Maven clean verification includes all previous tests, PostgreSQL schema
+- Java 21 Maven clean verification includes PostgreSQL schema
   validation, HTTP integration, migration, unit and concurrency tests.
-- Flyway V1, existing dependencies, package boundaries and CI triggers remain intact.
+- Flyway manages schema creation; Hibernate validates mappings at startup.
 - Owned-record destination markers and isolated schema cleanup prevent deletion of
   unrelated development data. Independently committed test rows are cleaned in finally/AfterEach.
 - URI validation is syntactic and never fetches destinations. Valid syntax does not
   establish trust. No authentication is added; the approved local demonstration
   security boundary remains explicit.
-- Code review, git whitespace checks and existing compiler/test gates are
-  proportionate here; no dependency was added solely for a nominal quality metric.
+- Compiler/test gates and GitHub Actions verify the project with Java 21 and
+  PostgreSQL 17. No additional dependency is needed for concurrency coordination.
 - Coverage percentages and load/throughput limits were not measured. This review
   makes no production-scale performance or security claim.
-
-Sam still needs to review and explain the concurrency strategy before Issue 15's
-human acceptance criterion is satisfied. All PRs also need applicable hosted checks
-after being retargeted to main; absent checks on stacked branches are not passes.

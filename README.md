@@ -4,12 +4,11 @@ ShortStack is a Java/Spring Boot URL-shortening REST API portfolio project.
 It demonstrates API design, relational persistence and backend correctness.
 V1 implements generated links, optional custom aliases and expiration, metadata,
 redirects and hard deletion, backed by PostgreSQL and database-enforced uniqueness.
-The implementation is prepared for human review; it is not declared portfolio-complete.
 Set `SHORTSTACK_BASE_URL` to the external HTTP(S) origin (default
 `http://localhost:8080`); response URLs never trust the request Host header.
 See [PROJECT.md](PROJECT.md) for scope and [the API contract](docs/api-contract.md),
 [domain rules](docs/domain-design.md) and [persistence design](docs/persistence-design.md)
-for the architecture approved through Issue #1.
+for the architecture and engineering rationale.
 
 ## Prerequisites and versions
 
@@ -56,7 +55,7 @@ This explicitly supplies process environment variables to Spring's `${DB_*}`
 placeholders and Compose. There is no dotenv library or automatic configuration
 import. In other shells, export the same five variables before running Maven/Java.
 If changing the file in a loaded session, rerun the loader. Application/test startup
-now requires these variables and a reachable PostgreSQL database; none has a
+requires these variables and a reachable PostgreSQL database; none has a
 committed credential fallback.
 
 ## Start PostgreSQL and check readiness
@@ -82,9 +81,7 @@ After loading the environment and starting PostgreSQL, from the repository root
 on Windows PowerShell:
 
 ```powershell
-.\mvnw.cmd clean verify
-.\mvnw.cmd test
-.\mvnw.cmd -Dtest=ShortLinkRepositoryTests test
+.\mvnw.cmd -B -ntp clean verify
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -100,15 +97,25 @@ java -jar target/shortstack-0.0.1-SNAPSHOT.jar
 ```
 
 The web server uses port 8080 by default. Stop it with Ctrl+C. A `404` at `/` is
-expected because there are no business controllers yet. The baseline test loads
-the Spring application context, connects to PostgreSQL and runs Flyway. It does
-not exercise future link functionality. Repository tests persist and reload rows,
-check absent/case-sensitive lookups, round-trip microsecond timestamps and null
-expiration, and flush duplicate inserts to verify `uq_short_link_code`. Each runs
-in a rollback-only test transaction; no test records remain, although PostgreSQL
-identity sequences may advance. These tests use the configured local database, so
-use a dedicated development database, never shared/production data. No H2,
-Testcontainers or new testing infrastructure is required.
+expected; business routes are listed below. Set `SHORTSTACK_BASE_URL` when the
+external origin differs from the default, and `SERVER_PORT` to change the listener.
+
+Verification uses the configured PostgreSQL database. Use a dedicated local
+development database, never shared or production data. Tests cover unit rules,
+HTTP validation/errors, repository mappings, migrations, committed transactions,
+expiration boundaries, lifecycle behaviour and coordinated concurrency races.
+Fixed clocks and bounded thread coordination avoid timing-dependent assertions.
+Repository tests roll back; tests with independent commits clean only their own
+destination markers, and migration tests drop only their isolated schema. The
+login needs permission to create/drop its test schema (the local Compose login
+supports this). Identity sequences may advance. No H2 or Testcontainers is used.
+
+Focused tests can be run with `-Dtest`, for example:
+
+```powershell
+.\mvnw.cmd -Dtest=ShortCodeGeneratorTests test
+.\mvnw.cmd -Dtest=ShortLinkRepositoryTests test
+```
 
 ## API usage
 
@@ -192,43 +199,15 @@ are short; deletion is a single affected-row-count write. No transaction spans H
 response delivery. [The persistence design](docs/persistence-design.md) and
 [correctness review](docs/correctness-review.md) explain constraints and races.
 
-## Generated-code persistence
-
-`ShortCodeGenerator` produces eight Base62 characters using `SecureRandom.nextInt(62)`
-for unbiased character selection. It redraws the reserved name `actuator`
-case-insensitively before returning a candidate; the remaining reserved names do
-not fit this generated format. It performs no database access or collision handling.
-
-`GeneratedLinkService.create` accepts destination URL, creation instant and optional
-expiration instant supplied by a future validated creation flow. It preserves those
-values across at most five total insertion attempts, generating a new candidate
-for each attempt. It does not validate URLs or check expiration. A separate Spring
-bean, `GeneratedLinkInserter`, creates and flushes a fresh entity inside
-`REQUIRES_NEW`. Its transaction proxy finishes commit/rollback before the
-coordinator receives the result or exception. The coordinator uses `NEVER` to reject
-an outer transaction rather than accidentally sharing it across retries.
-
-Only a translated integrity failure with Hibernate constraint name
-`uq_short_link_code` and JDBC SQLSTATE `23505` is retried. The cause-chain search
-handles nested wrappers and cycles; missing or unrelated evidence is propagated.
-Other persistence/transaction failures are not retried. PostgreSQL remains the
-uniqueness authority; there is no check-then-insert query. Five collisions throw
-`CodeGenerationExhaustedException`; HTTP mapping belongs to a later issue.
-
-The normal `clean verify` command includes generator/coordinator unit tests and
-PostgreSQL integration tests. Focused commands on PowerShell are:
-
-```powershell
-.\mvnw.cmd '-Dtest=ShortCodeGeneratorTests,GeneratedLinkServiceTests' test
-.\mvnw.cmd -Dtest=GeneratedLinkServiceIntegrationTests test
-```
-
-Unit tests need no database. Integration tests use the same PostgreSQL/environment
-configuration described above and exercise the real Spring transaction proxies.
-Unlike rollback-only repository tests, these insertion attempts commit independently;
-each integration test explicitly deletes only rows with its unique test-owned
-destination marker in cleanup, including after failures. Identity sequences may
-advance. No new database or testing dependencies are required.
+Generated codes use eight Base62 characters from unbiased `SecureRandom.nextInt(62)`
+draws. The database constraint `uq_short_link_code` arbitrates the shared generated
+and alias namespace; there is no check-then-insert availability query.
+`GeneratedLinkService` permits five total attempts and rejects an outer transaction
+with `NEVER`. A separate proxied `GeneratedLinkInserter` flushes a fresh entity in
+`REQUIRES_NEW`, completing commit or rollback before returning. Only the exact
+code constraint plus SQLSTATE `23505` is treated as a collision. Generated requests
+retry, then return `503 CODE_GENERATION_EXHAUSTED`; aliases return `409` immediately.
+The [correctness review](docs/correctness-review.md) explains the guarantees and limits.
 
 ## Continuous integration
 
@@ -270,11 +249,12 @@ additional domain feature.
 Hibernate uses `ddl-auto=validate`; automatic schema creation/updates and Spring
 SQL-script initialisation are disabled. Open Session in View is disabled, and
 PostgreSQL sessions/JDBC timestamp handling use UTC. The `persistence.ShortLink`
-entity now maps the existing five-column table, and context startup validates that
+entity maps the existing five-column table, and context startup validates that
 mapping against the Flyway-managed schema. Hibernate validation does not verify
 every check constraint, collation or uniqueness rule; direct database inspection
 and PostgreSQL integration checks remain necessary. `ShortLinkRepository` extends
-Spring Data JPA's standard operations and adds only exact `findByCode` lookup.
+Spring Data JPA's standard operations, exact `findByCode` lookup and an atomic
+`deleteByCode` operation returning the affected-row count.
 
 ## Stop PostgreSQL and persistent data
 
@@ -309,31 +289,25 @@ machine-specific paths or speculative deployment profiles. Local environment and
 `application-local.*` files are ignored; Spring Boot does not automatically load
 `.env` files. Do not commit secrets.
 
-Dependencies now include Spring MVC, Spring Data JPA/Hibernate, the PostgreSQL JDBC
-driver, Spring Boot's Flyway starter plus Flyway's PostgreSQL module, and the test
-starter. All dependency versions remain managed by Spring Boot 4.1.2. No H2,
-database auto-configuration exclusions or new dependencies are introduced by the
-generated-code work. The entity and repository remain persistence concerns.
-Baseline CI includes the generated-code tests; API endpoints and other link
-business operations remain future work.
+Dependencies include Spring MVC, Spring Data JPA/Hibernate, the PostgreSQL JDBC
+driver, Spring Boot's Flyway starter, Flyway's PostgreSQL module and the test
+starter. Versions are managed by Spring Boot's Maven parent.
 
 V1 is intended for local development and portfolio demonstration. Its approved
 unauthenticated API design is unsuitable for unrestricted public deployment
 without additional security controls.
 
-Full verification includes real HTTP/PostgreSQL lifecycle tests and a Flyway test
-using an isolated temporary schema. The configured development login needs permission
-to create/drop its own test schema (the provided local Compose login supports this).
-Test fixtures clean only owned records/schema, never unrelated development data.
-The suite includes generation/coordinator unit tests, HTTP validation/error tests,
-repository/transaction/migration tests, lifecycle tests and coordinated races.
 Coverage percentages and production throughput were not measured.
 
 V1 excludes accounts, frontend, analytics, distributed caches, deployment and rate
 limiting infrastructure. It does not promise exactly-once POST delivery or revoke
 redirects already read before deletion. Licensing and final portfolio acceptance
 remain owner decisions; no licence is silently selected by the implementation.
-See [the execution ledger](docs/execution-ledger.md) for the review stack and gates.
-The [autonomous handoff](docs/autonomous-handoff.md) records measured verification,
-per-issue results and the proposed human merge sequence. The
-[retrospective draft](docs/retrospective-draft.md) awaits Sam's reflection and review.
+
+## Technical documentation
+
+- [Project specification](PROJECT.md)
+- [API contract and response examples](docs/api-contract.md)
+- [Domain rules and allocation policy](docs/domain-design.md)
+- [Persistence schema and transactions](docs/persistence-design.md)
+- [Concurrency and correctness rationale](docs/correctness-review.md)
