@@ -8,6 +8,7 @@ import io.github.sputter9810.shortstack.service.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.assertj.core.api.Assertions.*;
@@ -36,7 +37,8 @@ class ExpirationTests {
 
     @ParameterizedTest
     @ValueSource(strings = {"", "2026-11-25T00:00:00.123456Z", "2026-11-24T00:00:00Z", "2026-11-26T00:00:00",
-            "2026-11-26T00:00:00.1234567Z", "2026-11-26T00:00:60Z", "2026-02-30T00:00:00Z", "0000-12-31T00:00:00Z"})
+            "2026-11-26T00:00:00.1234567Z", "2026-11-26T00:00:60Z", "2026-02-30T00:00:00Z", "0000-12-31T00:00:00Z",
+            "2027-01-01T00:00:00+24:00", "2027-01-01T00:00:00+00:60"})
     void rejectsInvalidOrNonFutureExpiration(String expiration) throws Exception {
         MockMvcBuilders.standaloneSetup(new LinkController(service)).setControllerAdvice(new ApiExceptionHandler(clock)).build()
                 .perform(post("/api/links").contentType("application/json").content(
@@ -67,5 +69,17 @@ class ExpirationTests {
         assertThat(service.resolve("future1")).isEqualTo("https://example.org");
         assertThat(service.get("future1").expired()).isFalse();
         assertThatThrownBy(() -> service.resolve("past123")).isInstanceOf(LinkExpiredException.class);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2027-01-02T00:00:00+23:59,2027-01-01T00:01:00Z",
+            "2027-01-01T00:00:00-23:59,2027-01-01T23:59:00Z",
+            "2027-01-01t00:00:00z,2027-01-01T00:00:00Z"})
+    void acceptsTheFullApprovedRfc3339OffsetSyntax(String input, String utc) {
+        Instant expiry = Instant.parse(utc);
+        when(generated.create("https://example.org", NOW, expiry))
+                .thenReturn(new ShortLink("AbCd1234", "https://example.org", NOW, expiry));
+        assertThat(service.create("https://example.org", null, input).expiresAt())
+                .isEqualTo(new java.time.format.DateTimeFormatterBuilder().appendInstant(6).toFormatter().format(expiry));
     }
 }

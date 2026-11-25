@@ -111,3 +111,10 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - Flyway applies V1 to a fresh uniquely owned schema; second migrate executes zero changes. Catalogue checks verify columns, identity, timestamps and all named constraints; schema removed in finally.
 - Full verification: 123 passed, zero failed/skipped. Existing repository/collision tests retained. No new dependencies or test architecture.
 - Local acceptance checks pass; CI is configured to discover all tests, but hosted verification of this stacked branch remains pending main retargeting (not reported as a pass).
+
+### Issue 15 — correctness review
+- Parent feature/issue-14-postgres-integration at 77db28d, PR #31.
+- Added barrier-coordinated generated-collision retry and atomic delete races; real PostgreSQL and transaction proxies remain in use.
+- Found/fixed Java's narrower offset-range parsing against the approved RFC3339 contract, with +/-23:59, lowercase markers and invalid-offset regression tests.
+- Full verification: 130 passed, zero failed/skipped. Detailed review and allowed in-flight deletion/redirect behavior recorded in docs/correctness-review.md.
+- Technical criteria supported; Sam's ability to explain/review the strategy remains a human acceptance gate, not claimed passed.
