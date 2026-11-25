@@ -93,6 +93,13 @@ public class LinkService {
         return link.getDestinationUrl();
     }
 
+    @Transactional
+    public void delete(String code) {
+        if (repository.deleteByCode(code) == 0) {
+            throw new LinkNotFoundException();
+        }
+    }
+
     private boolean expired(ShortLink link) {
         Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         return link.getExpiresAt() != null && !now.isBefore(link.getExpiresAt());
