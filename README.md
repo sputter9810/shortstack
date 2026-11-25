@@ -239,3 +239,6 @@ business operations remain future work.
 V1 is intended for local development and portfolio demonstration. Its approved
 unauthenticated API design is unsuitable for unrestricted public deployment
 without additional security controls.
+
+GET /api/links/{code} returns stored metadata with 200, or a structured LINK_NOT_FOUND 404. It does not redirect.
+

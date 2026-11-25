@@ -66,3 +66,10 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - All seven issue acceptance criteria supported by implementation/tests. Complete
   error validation, aliases and expiration remain intentionally assigned to 10/11/13.
 - No schema/dependency/security change. Prepared for Review, never final acceptance.
+
+### Issue 8 — metadata
+- Parent feature/issue-7-link-creation (5f8f27a), PR #24; hosted CI passed (run 45604369459).
+- Exact repository lookup, DTO-only GET, read-only transaction and structured missing 404. No redirects.
+- Full verification: 38 passed, zero failed/skipped; found/missing HTTP and service paths covered. All six criteria supported.
+- Branch feature/issue-8-metadata; expiry completion deferred to 11. No schema/dependency changes.
+
