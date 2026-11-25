@@ -97,3 +97,10 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - Single atomic JPQL delete returns affected count in one write transaction; DELETE returns empty 204 or structured 404.
 - PostgreSQL integration proves expired-row deletion, missing metadata/redirect/repeated delete and alias reuse.
 - Full verification: 65 passed, zero failed/skipped; all six criteria supported. No soft-delete or schema changes.
+
+### Issue 13 — validation and errors
+- Parent feature/issue-12-deletion at f40a21f, PR #29.
+- Completed approved ASCII HTTP(S) URI rules without fetching, strict JSON types/unknown fields, code validation and reserved-root handling.
+- Central advice preserves framework statuses/Allow; custom fallback error controller and no-store filter keep application errors consistent. Exhaustion/unavailability 503; unexpected failures sanitised 500.
+- Full Java21/PostgreSQL verification: 119 passed, zero failed/skipped. Matrix covers URL/JSON/time/alias/code/media/method/fault cases. All seven criteria supported.
+- Existing dependencies and Flyway schema unchanged; Jackson3 converter configured using the installed supported API.

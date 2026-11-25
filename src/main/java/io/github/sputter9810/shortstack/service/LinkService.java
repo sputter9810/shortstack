@@ -50,14 +50,7 @@ public class LinkService {
     }
 
     public LinkMetadata create(String destinationUrl, String alias, String expiration) {
-        if (destinationUrl == null || destinationUrl.length() > 2048) {
-            throw new IllegalArgumentException("Invalid destination URL");
-        }
-        URI destination = URI.create(destinationUrl);
-        if (destination.getHost() == null || !("http".equalsIgnoreCase(destination.getScheme())
-                || "https".equalsIgnoreCase(destination.getScheme()))) {
-            throw new IllegalArgumentException("Invalid destination URL");
-        }
+        DestinationRules.validate(destinationUrl);
         Instant createdAt = clock.instant().truncatedTo(ChronoUnit.MICROS);
         Instant expiresAt = parseExpiration(expiration, createdAt);
         if (alias == null) {
@@ -80,12 +73,17 @@ public class LinkService {
 
     @Transactional(readOnly = true)
     public LinkMetadata get(String code) {
+        CodeRules.validateLookup(code);
         ShortLink link = repository.findByCode(code).orElseThrow(LinkNotFoundException::new);
         return metadata(link, expired(link));
     }
 
     @Transactional(readOnly = true)
     public String resolve(String code) {
+        if (CodeRules.reserved(code)) {
+            throw new InvalidCodeException(true);
+        }
+        CodeRules.validateLookup(code);
         ShortLink link = repository.findByCode(code).orElseThrow(LinkNotFoundException::new);
         if (expired(link)) {
             throw new LinkExpiredException();
@@ -95,6 +93,7 @@ public class LinkService {
 
     @Transactional
     public void delete(String code) {
+        CodeRules.validateLookup(code);
         if (repository.deleteByCode(code) == 0) {
             throw new LinkNotFoundException();
         }
