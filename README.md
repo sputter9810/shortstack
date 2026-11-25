@@ -243,3 +243,4 @@ without additional security controls.
 GET /api/links/{code} returns stored metadata with 200, or a structured LINK_NOT_FOUND 404. It does not redirect.
 GET /{code} returns an empty 302 redirect to the stored destination; missing links return 404 without Location.
 POST accepts optional customAlias: 3–32 ASCII letters, digits, underscores or hyphens; reserved names are rejected, exact duplicates return 409.
+POST accepts optional expiresAt (RFC 3339 with explicit offset, at most six fractional digits, strictly future). Expired redirects return 410; metadata stays available with expired=true.

@@ -7,6 +7,7 @@ import java.util.List;
 import io.github.sputter9810.shortstack.service.LinkNotFoundException;
 import io.github.sputter9810.shortstack.service.InvalidLinkRequestException;
 import io.github.sputter9810.shortstack.service.AliasConflictException;
+import io.github.sputter9810.shortstack.service.LinkExpiredException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AliasConflictException.class)
     public ResponseEntity<ApiError> conflict(AliasConflictException failure, HttpServletRequest request) {
         return error(409, "ALIAS_CONFLICT", failure.getMessage(), List.of(), request);
+    }
+
+    @ExceptionHandler(LinkExpiredException.class)
+    public ResponseEntity<ApiError> expired(LinkExpiredException failure, HttpServletRequest request) {
+        return error(410, "LINK_EXPIRED", failure.getMessage(), List.of(), request);
     }
 
     private ResponseEntity<ApiError> error(int status, String code, String message,

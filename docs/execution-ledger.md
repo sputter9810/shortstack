@@ -85,3 +85,9 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - Made the unchanged Issue-6 classifier package-visible to reuse its evidence checks; no algorithm change.
 - Full verification: 51 passed, zero failed/skipped. Includes HTTP alias matrix and latch-coordinated real PostgreSQL race (one creation, one conflict); owned rows cleaned.
 - All six acceptance criteria supported. Branch feature/issue-10-custom-aliases.
+
+### Issue 11 — expiration
+- Parent feature/issue-10-custom-aliases at 6d60746, PR #27.
+- Strict future RFC3339 timestamps, UTC microseconds, central inclusive expiry; redirect 410 and metadata 200.
+- Java21/PostgreSQL clean verification: 62 passed, zero failed/skipped; all seven criteria supported.
+- Publication initially rejected by automatic review; explicit attachment authorization and matching origin were rechecked before retry.
