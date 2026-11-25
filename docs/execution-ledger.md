@@ -91,3 +91,9 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - Strict future RFC3339 timestamps, UTC microseconds, central inclusive expiry; redirect 410 and metadata 200.
 - Java21/PostgreSQL clean verification: 62 passed, zero failed/skipped; all seven criteria supported.
 - Publication initially rejected by automatic review; explicit attachment authorization and matching origin were rechecked before retry.
+
+### Issue 12 — hard deletion
+- Parent feature/issue-11-expiration at 2bd1676, PR #28.
+- Single atomic JPQL delete returns affected count in one write transaction; DELETE returns empty 204 or structured 404.
+- PostgreSQL integration proves expired-row deletion, missing metadata/redirect/repeated delete and alias reuse.
+- Full verification: 65 passed, zero failed/skipped; all six criteria supported. No soft-delete or schema changes.
