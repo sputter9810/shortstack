@@ -1,4 +1,4 @@
 package io.github.sputter9810.shortstack.api;
 
-public record CreateLinkRequest(String destinationUrl, String customAlias) {
+public record CreateLinkRequest(String destinationUrl, String customAlias, String expiresAt) {
 }

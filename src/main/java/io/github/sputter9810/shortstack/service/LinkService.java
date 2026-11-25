@@ -3,6 +3,7 @@ package io.github.sputter9810.shortstack.service;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoUnit;
@@ -45,6 +46,10 @@ public class LinkService {
     }
 
     public LinkMetadata create(String destinationUrl, String alias) {
+        return create(destinationUrl, alias, null);
+    }
+
+    public LinkMetadata create(String destinationUrl, String alias, String expiration) {
         if (destinationUrl == null || destinationUrl.length() > 2048) {
             throw new IllegalArgumentException("Invalid destination URL");
         }
@@ -54,12 +59,13 @@ public class LinkService {
             throw new IllegalArgumentException("Invalid destination URL");
         }
         Instant createdAt = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        Instant expiresAt = parseExpiration(expiration, createdAt);
         if (alias == null) {
-            return metadata(generated.create(destinationUrl, createdAt, null), false);
+            return metadata(generated.create(destinationUrl, createdAt, expiresAt), false);
         }
         CodeRules.validateAlias(alias);
         try {
-            return metadata(inserter.insert(alias, destinationUrl, createdAt, null), false);
+            return metadata(inserter.insert(alias, destinationUrl, createdAt, expiresAt), false);
         } catch (DataIntegrityViolationException failure) {
             if (GeneratedLinkService.isCodeCollision(failure)) {
                 throw new AliasConflictException(failure);
@@ -74,12 +80,41 @@ public class LinkService {
 
     @Transactional(readOnly = true)
     public LinkMetadata get(String code) {
-        return metadata(repository.findByCode(code).orElseThrow(LinkNotFoundException::new), false);
+        ShortLink link = repository.findByCode(code).orElseThrow(LinkNotFoundException::new);
+        return metadata(link, expired(link));
     }
 
     @Transactional(readOnly = true)
     public String resolve(String code) {
-        return repository.findByCode(code).orElseThrow(LinkNotFoundException::new).getDestinationUrl();
+        ShortLink link = repository.findByCode(code).orElseThrow(LinkNotFoundException::new);
+        if (expired(link)) {
+            throw new LinkExpiredException();
+        }
+        return link.getDestinationUrl();
+    }
+
+    private boolean expired(ShortLink link) {
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        return link.getExpiresAt() != null && !now.isBefore(link.getExpiresAt());
+    }
+
+    private static Instant parseExpiration(String input, Instant createdAt) {
+        if (input == null) {
+            return null;
+        }
+        try {
+            if (!input.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})")) {
+                throw new IllegalArgumentException();
+            }
+            Instant expiration = OffsetDateTime.parse(input).toInstant();
+            if (!expiration.isAfter(createdAt) || expiration.isBefore(Instant.parse("0001-01-01T00:00:00Z"))
+                    || !expiration.isBefore(Instant.parse("+10000-01-01T00:00:00Z"))) {
+                throw new IllegalArgumentException();
+            }
+            return expiration;
+        } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
+            throw new InvalidLinkRequestException("expiresAt", "Must be a future RFC 3339 timestamp with an offset and at most six fractional digits.");
+        }
     }
 
     private LinkMetadata metadata(ShortLink link, boolean expired) {
