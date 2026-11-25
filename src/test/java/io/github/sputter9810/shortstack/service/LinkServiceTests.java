@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 
 import io.github.sputter9810.shortstack.persistence.ShortLink;
+import io.github.sputter9810.shortstack.persistence.ShortLinkRepository;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,7 +20,8 @@ class LinkServiceTests {
         GeneratedLinkService generated = mock(GeneratedLinkService.class);
         when(generated.create("https://example.org/a?b=1#c", now, null))
                 .thenReturn(new ShortLink("AbCd1234", "https://example.org/a?b=1#c", now, null));
-        LinkService service = new LinkService(generated, Clock.fixed(now.plusNanos(789), ZoneOffset.UTC), "https://sho.rt");
+        LinkService service = new LinkService(generated, mock(ShortLinkRepository.class),
+                Clock.fixed(now.plusNanos(789), ZoneOffset.UTC), "https://sho.rt");
 
         var result = service.create("https://example.org/a?b=1#c");
 

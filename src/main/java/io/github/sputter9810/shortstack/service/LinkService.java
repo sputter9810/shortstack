@@ -9,19 +9,23 @@ import java.time.temporal.ChronoUnit;
 
 import io.github.sputter9810.shortstack.api.LinkMetadata;
 import io.github.sputter9810.shortstack.persistence.ShortLink;
+import io.github.sputter9810.shortstack.persistence.ShortLinkRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class LinkService {
     private static final DateTimeFormatter TIME = new DateTimeFormatterBuilder().appendInstant(6).toFormatter();
     private final GeneratedLinkService generated;
+    private final ShortLinkRepository repository;
     private final Clock clock;
     private final String baseUrl;
 
-    public LinkService(GeneratedLinkService generated, Clock clock,
+    public LinkService(GeneratedLinkService generated, ShortLinkRepository repository, Clock clock,
                        @Value("${shortstack.base-url}") String baseUrl) {
         this.generated = generated;
+        this.repository = repository;
         this.clock = clock;
         URI base = URI.create(baseUrl);
         if (base.getHost() == null || !("http".equals(base.getScheme()) || "https".equals(base.getScheme()))
@@ -47,6 +51,11 @@ public class LinkService {
 
     public URI metadataLocation(String code) {
         return URI.create(baseUrl + "/api/links/" + code);
+    }
+
+    @Transactional(readOnly = true)
+    public LinkMetadata get(String code) {
+        return metadata(repository.findByCode(code).orElseThrow(LinkNotFoundException::new), false);
     }
 
     private LinkMetadata metadata(ShortLink link, boolean expired) {
