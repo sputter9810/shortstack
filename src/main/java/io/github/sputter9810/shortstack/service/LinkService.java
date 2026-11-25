@@ -3,7 +3,8 @@ package io.github.sputter9810.shortstack.service;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoUnit;
@@ -109,10 +110,23 @@ public class LinkService {
             return null;
         }
         try {
-            if (!input.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})")) {
+            if (!input.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?([Zz]|[+-][0-9]{2}:[0-9]{2})")) {
                 throw new IllegalArgumentException();
             }
-            Instant expiration = OffsetDateTime.parse(input).toInstant();
+            boolean utc = input.endsWith("Z") || input.endsWith("z");
+            int offsetStart = input.length() - (utc ? 1 : 6);
+            int offsetSeconds = 0;
+            if (!utc) {
+                int hours = Integer.parseInt(input.substring(offsetStart + 1, offsetStart + 3));
+                int minutes = Integer.parseInt(input.substring(offsetStart + 4));
+                if (hours > 23 || minutes > 59) {
+                    throw new IllegalArgumentException();
+                }
+                offsetSeconds = (hours * 3600 + minutes * 60) * (input.charAt(offsetStart) == '+' ? 1 : -1);
+            }
+            // RFC 3339 permits offsets up to 23:59; Java ZoneOffset stops at 18:00.
+            Instant expiration = LocalDateTime.parse(input.substring(0, offsetStart).replace('t', 'T'))
+                    .toInstant(ZoneOffset.UTC).minusSeconds(offsetSeconds);
             if (!expiration.isAfter(createdAt) || expiration.isBefore(Instant.parse("0001-01-01T00:00:00Z"))
                     || !expiration.isBefore(Instant.parse("+10000-01-01T00:00:00Z"))) {
                 throw new IllegalArgumentException();
