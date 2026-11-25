@@ -1,8 +1,8 @@
 # V1 API contract
 
-**Status: Architectural decisions listed in the owner's revision request are
-approved by Sam. Documentation revisions await final verification; Issue #1
-remains in Review until final human acceptance.** Prepared for
+**Status: Architectural decisions approved through closed Issue #1.** This contract
+is implemented on the V1 review stack; cumulative acceptance and merge remain
+human-controlled. Originally prepared for
 [Issue #1](https://github.com/sputter9810/shortstack/issues/1), 17 October 2026.
 No application behaviour is implemented by this document. Read with
 [domain rules](domain-design.md) and [persistence and review](persistence-design.md).

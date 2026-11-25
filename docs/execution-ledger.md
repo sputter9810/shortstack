@@ -118,3 +118,10 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - Found/fixed Java's narrower offset-range parsing against the approved RFC3339 contract, with +/-23:59, lowercase markers and invalid-offset regression tests.
 - Full verification: 130 passed, zero failed/skipped. Detailed review and allowed in-flight deletion/redirect behavior recorded in docs/correctness-review.md.
 - Technical criteria supported; Sam's ability to explain/review the strategy remains a human acceptance gate, not claimed passed.
+
+### Issue 16 — documentation and reproducibility
+- Parent feature/issue-15-correctness-review at a6fd368, PR #32.
+- Consolidated README explains complete V1, prerequisites/configuration, commands, API examples, errors, transaction/expiry/deletion semantics and limitations. Historical design status wording updated without contract changes.
+- Clean tracked-source archive had no target or .env. A separate new PostgreSQL Compose project and explicit temporary environment were used: Java21 clean verify passed 130 tests, zero failed/skipped.
+- Clean-archive JAR started, Flyway reported up-to-date; 10 real HTTP requests verified generated creation, metadata, redirect/query-fragment, alias/conflict, invalid/missing and deletion; no-store checked throughout.
+- Local Markdown links and whitespace checked. Sam still reviews architecture explanations. No licence or final project acceptance invented.

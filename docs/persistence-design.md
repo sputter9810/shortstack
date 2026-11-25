@@ -1,10 +1,10 @@
 # V1 persistence design and Issue #1 review
 
 **Status: Spring Data JPA/Hibernate, Flyway, PostgreSQL, the schema and constraints,
-transaction boundaries and collision policy are approved by Sam. Documentation
-revisions await final verification; Issue #1 remains in Review, not Done.**
-17 October 2026. No SQL below has been created as a
-migration or executed. Read [API contract](api-contract.md) and
+transaction boundaries and collision policy were approved through closed Issue #1.**
+Originally prepared 17 October 2026; current implementation is on the V1 review stack.
+The SQL design below is implemented by `V1__create_short_link.sql`; the excerpt
+remains documentation, not a second migration. Read [API contract](api-contract.md) and
 [domain rules](domain-design.md) as one design. Architectural approval does not
 claim implementation, successful runtime tests or final acceptance of this revision.
 
@@ -158,8 +158,11 @@ runtime verification:
 - Deletion: expired/active/unknown and repeated deletes, alias reuse, concurrent
   deletes, and a resolution already read before deletion as allowed by the contract.
 
-## Issue #1 acceptance assessment
+## Historical Issue #1 acceptance assessment
 
+The following is the original pre-acceptance assessment, retained as design history.
+Issue #1 was subsequently closed and merged on 17 October 2026. Current
+implementation/verification status is tracked in [the execution ledger](execution-ledger.md).
 The live issue was read on 17 October 2026. PASS here means documentation supports
 the criterion, not that functionality is implemented. The owner's revision request
 records architectural approval; revised wording and final issue acceptance remain
@@ -184,6 +187,10 @@ layering, migrations and future PostgreSQL tests are addressed above. Runtime
 testing, Docker/CI and repository presentation remain later issues as planned.
 
 ## Review handover and source documents
+
+The paragraphs below describe the original Issue #1 handover, not current issue
+status. Its architectural approval and merge are now complete. Remaining V1
+reviews do not reopen or change that approved schema or contract.
 
 No direct contradiction with `PROJECT.md` was found and no change to it is proposed.
 No missing referenced standard: the Portfolio Repository Standard, AI Development
