@@ -78,3 +78,10 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - Public GET delegates to service; 302 uses stored destination including query/fragment and ignores incoming query.
 - Full verification: 40 passed, zero failed/skipped. Redirect/missing paths covered; all six criteria supported.
 - Corrected trailing blank lines accidentally included in issue-8 documentation; no history rewrite.
+
+### Issue 10 — aliases
+- Parent feature/issue-9-redirect at faa64aa, PR #26.
+- Optional alias uses one REQUIRES_NEW insert, exact shared uniqueness evidence, 409 on collision, 400 for syntax/reserved failures. No generated retries for aliases.
+- Made the unchanged Issue-6 classifier package-visible to reuse its evidence checks; no algorithm change.
+- Full verification: 51 passed, zero failed/skipped. Includes HTTP alias matrix and latch-coordinated real PostgreSQL race (one creation, one conflict); owned rows cleaned.
+- All six acceptance criteria supported. Branch feature/issue-10-custom-aliases.

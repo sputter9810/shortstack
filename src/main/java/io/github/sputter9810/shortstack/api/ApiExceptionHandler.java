@@ -5,6 +5,8 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.util.List;
 
 import io.github.sputter9810.shortstack.service.LinkNotFoundException;
+import io.github.sputter9810.shortstack.service.InvalidLinkRequestException;
+import io.github.sputter9810.shortstack.service.AliasConflictException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -21,8 +23,24 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(LinkNotFoundException.class)
     public ResponseEntity<ApiError> missing(LinkNotFoundException failure, HttpServletRequest request) {
+        return error(404, "LINK_NOT_FOUND", failure.getMessage(), List.of(), request);
+    }
+
+    @ExceptionHandler(InvalidLinkRequestException.class)
+    public ResponseEntity<ApiError> invalid(InvalidLinkRequestException failure, HttpServletRequest request) {
+        return error(400, "VALIDATION_FAILED", "Request validation failed.",
+                List.of(new ApiError.Violation(failure.getField(), failure.getMessage())), request);
+    }
+
+    @ExceptionHandler(AliasConflictException.class)
+    public ResponseEntity<ApiError> conflict(AliasConflictException failure, HttpServletRequest request) {
+        return error(409, "ALIAS_CONFLICT", failure.getMessage(), List.of(), request);
+    }
+
+    private ResponseEntity<ApiError> error(int status, String code, String message,
+                                          List<ApiError.Violation> violations, HttpServletRequest request) {
         String timestamp = new DateTimeFormatterBuilder().appendInstant(6).toFormatter().format(clock.instant());
-        return ResponseEntity.status(404).cacheControl(CacheControl.noStore()).body(
-                new ApiError(timestamp, 404, "LINK_NOT_FOUND", failure.getMessage(), request.getRequestURI(), List.of()));
+        return ResponseEntity.status(status).cacheControl(CacheControl.noStore()).body(
+                new ApiError(timestamp, status, code, message, request.getRequestURI(), violations));
     }
 }

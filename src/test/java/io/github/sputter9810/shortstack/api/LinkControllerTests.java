@@ -15,7 +15,7 @@ class LinkControllerTests {
     @Test
     void creationReturns201LocationAndDto() throws Exception {
         LinkService service = mock(LinkService.class);
-        when(service.create("https://example.org"))
+        when(service.create("https://example.org", null))
                 .thenReturn(new LinkMetadata("AbCd1234", "https://sho.rt/AbCd1234", "https://example.org",
                         "2026-11-25T00:00:00.000000Z", null, false));
         when(service.metadataLocation("AbCd1234")).thenReturn(URI.create("https://sho.rt/api/links/AbCd1234"));
