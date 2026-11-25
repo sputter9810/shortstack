@@ -58,6 +58,11 @@ public class LinkService {
         return metadata(repository.findByCode(code).orElseThrow(LinkNotFoundException::new), false);
     }
 
+    @Transactional(readOnly = true)
+    public String resolve(String code) {
+        return repository.findByCode(code).orElseThrow(LinkNotFoundException::new).getDestinationUrl();
+    }
+
     private LinkMetadata metadata(ShortLink link, boolean expired) {
         return new LinkMetadata(link.getCode(), baseUrl + "/" + link.getCode(), link.getDestinationUrl(),
                 TIME.format(link.getCreatedAt()), link.getExpiresAt() == null ? null : TIME.format(link.getExpiresAt()), expired);
