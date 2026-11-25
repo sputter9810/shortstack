@@ -1,25 +1,21 @@
-# V1 persistence design and Issue #1 review
+# V1 persistence design
 
-**Status: Spring Data JPA/Hibernate, Flyway, PostgreSQL, the schema and constraints,
-transaction boundaries and collision policy were approved through closed Issue #1.**
-Originally prepared 17 October 2026; current implementation is on the V1 review stack.
-The SQL design below is implemented by `V1__create_short_link.sql`; the excerpt
-remains documentation, not a second migration. Read [API contract](api-contract.md) and
-[domain rules](domain-design.md) as one design. Architectural approval does not
-claim implementation, successful runtime tests or final acceptance of this revision.
+Spring Data JPA/Hibernate maps the PostgreSQL schema managed by Flyway.
+The SQL excerpt below matches `V1__create_short_link.sql`; it is documentation,
+not a second migration. Read the [API contract](api-contract.md) and
+[domain rules](domain-design.md) as one design.
 
 ## Persistence choices and boundaries
 
-The owner approved Spring Data JPA/Hibernate for conventional entity/repository support,
-PostgreSQL as the authoritative database, and Flyway versioned SQL migrations.
+Spring Data JPA/Hibernate provides conventional entity/repository support,
+PostgreSQL is the authoritative database, and Flyway owns versioned SQL migrations.
 These refine the intentionally open persistence choices in `PROJECT.md`; they
 do not replace its stack. JPA suits this small model and the portfolio's layered
 Spring objective; explicit JDBC would expose SQL more directly but require more
 mapping. Hibernate can hide flush timing, so transaction behaviour below is part
 of the contract. Flyway makes a small PostgreSQL schema easy to review as SQL;
-Liquibase is viable but its richer change model is unnecessary here. These are
-approved future dependency choices, not additions in this issue. Versions and build
-configuration belong to a later scaffolding issue after Issue #1's final acceptance.
+Liquibase is viable but its richer change model is unnecessary here. Dependency
+and plugin versions are managed by the Spring Boot Maven parent.
 
 Controllers handle DTO binding, request syntax, headers and status codes. They
 delegate to services and never expose JPA entities. Services own destination/alias
@@ -36,14 +32,14 @@ independent ID generation but add size without benefit here; a code primary key
 would couple external naming policy to persistence identity. ID gaps after failed
 transactions are expected. IDs are never client-facing or the short-code source.
 
-Flyway will own schema creation/evolution; Hibernate schema mode should be
-`validate`, never `create`, `update` or `create-drop` for the persistent application.
+Flyway owns schema creation/evolution; Hibernate uses `validate`, never `create`,
+`update` or `create-drop` for the persistent application.
 Use PostgreSQL for integration tests, including migration and constraint tests;
 H2 is not a substitute for these semantics. Configure UTC for JDBC/database
 sessions and serialisation; `timestamptz` represents an instant, not the original
 user offset. Store microsecond precision as specified in the domain contract.
 
-## Approved schema design (documentation only)
+## Schema
 
 ```sql
 CREATE TABLE short_link (
@@ -108,17 +104,19 @@ tombstones, soft-deletion state or reservation table is part of this schema.
 Use ordinary PostgreSQL READ COMMITTED isolation. The database unique constraint,
 not serializable isolation or an application lock, decides concurrent allocation.
 
-The creation orchestrator has **no outer transaction**. Prefer a small
-`TransactionTemplate` with `REQUIRES_NEW` around each insert/flush/commit attempt;
-catch duplicate exceptions outside `execute`. The returned success must include
-commit completion. This gives each attempt an independent transaction and fresh
-entity state, without relying on Spring proxy self-invocation. An alternative is
-a separate proxied transactional writer bean; an annotated private or self-called
-method is insufficient. Never catch a uniqueness error inside the failed transaction
-and continue writing in it. Recognise SQLSTATE `23505` plus constraint
-`uq_short_link_code` through the persistence exception cause chain. Other failures
-must propagate to controlled mapping. The exact five-attempt algorithm is owned by
-[domain rules](domain-design.md#generated-collisions-and-concurrency).
+The creation orchestrator has **no outer transaction**. `GeneratedLinkService`
+uses `NEVER` to reject an ambient transaction. Each insertion is delegated to a
+separate Spring-proxied `GeneratedLinkInserter` using `REQUIRES_NEW` and
+`saveAndFlush`. The proxy completes commit or rollback before the caller receives
+the result or exception. Each attempt creates fresh entity state; a private or
+self-called transactional method would not establish this proxy boundary.
+
+Failures are classified outside the failed transaction. Only a translated
+integrity failure carrying Hibernate constraint `uq_short_link_code` and JDBC
+SQLSTATE `23505` is a code collision. Cause traversal handles nested wrappers and
+cycles. Other failures propagate to controlled API mapping. The exact five-attempt
+algorithm is defined in [domain rules](domain-design.md#generated-collisions-and-concurrency).
+Never continue writing in a transaction aborted by a uniqueness failure.
 
 Each metadata or resolution lookup uses a short read-only transaction. Load by
 exact code, sample the clock and derive expiry, materialise the DTO/resolution
@@ -137,10 +135,10 @@ SQL beyond the approved conventional JPA insert. Do not combine retry-in-aborted
 transaction logic with either approach. Review this choice again only if actual
 implementation exposes a material maintainability problem.
 
-## Verification plan for later implementation
+## Verification strategy
 
-These are future behavioural checks, not test implementations or claims of passing
-runtime verification:
+Automated tests exercise the following behaviour using real PostgreSQL and the
+Flyway-managed schema:
 
 - API: generated/custom creation and Location, each metadata field, empty redirect
   and deletion responses, all structured failures, unsupported schemes, header
@@ -155,84 +153,24 @@ runtime verification:
   assert one row and correct loser response/retry. Force four collisions then
   success, five collisions then 503, and unrelated failure with no collision retry.
   Confirm fresh transaction state after a duplicate and no orphan failed inserts.
-- Deletion: expired/active/unknown and repeated deletes, alias reuse, concurrent
-  deletes, and a resolution already read before deletion as allowed by the contract.
+- Deletion: expired/active/unknown and repeated deletes, alias reuse and concurrent
+  deletes. The contract permits a resolution already read before deletion to finish;
+  tests do not claim revocation of an in-flight response.
 
-## Historical Issue #1 acceptance assessment
+Hibernate validation checks mapped table/column compatibility; it does not prove
+every constraint, collation or index. PostgreSQL integration tests inspect those
+invariants directly. Fresh-schema migration tests apply V1 and verify subsequent
+migration runs are no-ops. Fixture cleanup is scoped to owned records or schemas.
 
-The following is the original pre-acceptance assessment, retained as design history.
-Issue #1 was subsequently closed and merged on 17 October 2026. Current
-implementation/verification status is tracked in [the execution ledger](execution-ledger.md).
-The live issue was read on 17 October 2026. PASS here means documentation supports
-the criterion, not that functionality is implemented. The owner's revision request
-records architectural approval; revised wording and final issue acceptance remain
-pending. The original issue requirements are retained without architectural changes.
+The unauthenticated demonstration API permits metadata access and deletion by
+anyone who knows a code. Deleted codes can be reused, so old URLs may later
+resolve elsewhere. Valid destination syntax establishes neither safety nor trust.
+These limits do not require extra tables or security infrastructure in V1.
 
-| Exact issue criterion | Assessment | Evidence |
-|---|---|---|
-| All listed architectural decisions have an explicit documented outcome. | PASS | API Operations/representations/failures; domain codes/time; persistence schema/transactions |
-| The resulting API contract satisfies the approved V1 scope in PROJECT.md. | PASS | API four operations; domain validation, aliases and expiry; no extra business operations |
-| The schema design enforces short-code uniqueness in PostgreSQL. | PASS (design) | Approved schema design `uq_short_link_code`, shared case-sensitive column |
-| Collision handling has defined behaviour under concurrent requests. | PASS (design) | Domain allocation steps; independent transactions above |
-| Expiration and deletion semantics are unambiguous. | PASS | Domain time/state rules; API operation matrix and examples |
-| No Version 1 scope expansion has been introduced. | PASS | Same stack/domain; no frontend, accounts, analytics, caching or infrastructure expansion |
-| Sam has reviewed and approved the decisions. | PARTIAL | Listed architectural decisions approved in the owner's revision request; retained API details and revised documentation await final verification (see Review handover) |
-| Documentation is sufficient for later issues to proceed without undocumented conversation context. | PASS (documentation); final acceptance prerequisite | Linked API/domain/schema, validation rules, algorithm and verification plan |
+## Technical references
 
-Scope traceability to `PROJECT.md` Functional Requirements: 1/8 creation and DTOs;
-2–4 generation/uniqueness/retries; 5–7 aliases and validation; 9/10 redirect/metadata;
-11/12 time/expiry; 13 deletion; 14 structured errors; 15 PostgreSQL persistence;
-16 schema invariants; 17 the complete HTTP contract. The Technical Requirements'
-layering, migrations and future PostgreSQL tests are addressed above. Runtime
-testing, Docker/CI and repository presentation remain later issues as planned.
-
-## Review handover and source documents
-
-The paragraphs below describe the original Issue #1 handover, not current issue
-status. Its architectural approval and merge are now complete. Remaining V1
-reviews do not reopen or change that approved schema or contract.
-
-No direct contradiction with `PROJECT.md` was found and no change to it is proposed.
-No missing referenced standard: the Portfolio Repository Standard, AI Development
-Guide and Definition of Done were read from the sibling `Personal/Portfolio-Standards`
-repository. They are external governance documents, not copied into this repository.
-The clean starting repository contained only PROJECT.md and no AGENTS.md was found
-in its applicable directory ancestry. Do not infer that the project's full Definition
-of Done is satisfied: no build/test/CI infrastructure exists here yet, and no human
-acceptance of this revision or commit acceptance is claimed by this document.
-
-The owner's final-revision request explicitly approves unauthenticated hard deletion
-(`204`, unknown `404`), code reuse, the existing URL validation contract, generation
-and alias rules, collision policy, UTC/Instant/microsecond expiration semantics,
-expired metadata and `410` redirects, JPA/Hibernate, Flyway, PostgreSQL, schema and
-constraints, and transaction boundaries. These approved decisions are preserved.
-
-Approval of the complete issue is not inferred. The request requires the remaining
-endpoint paths, response codes and DTO representations to stay unchanged. Retained
-API details not individually enumerated in its approval list include the custom
-error envelope, rejection of unknown JSON fields, configured base-URL policy and
-`Cache-Control: no-store`. They remain documented unchanged and should be explicitly
-confirmed during final verification; this revision does not independently mark
-them newly approved. No technical contradiction requiring an architectural change
-was found.
-
-The approved demonstration boundary must remain visible: anyone with API access
-and a code can inspect metadata or delete a row. Unrestricted public deployment
-would require additional security controls outside V1. Reusable old short URLs can
-resolve to new destinations, and valid destination syntax does not imply safety or
-trustworthiness. These consequences are now explicit, without adding security
-infrastructure or changing scope.
-
-Sam should verify this documentation revision, confirm the retained API details,
-and record final acceptance or revisions in Issue #1. Only after final acceptance
-and applicable repository requirements may the owner mark Issue #1 Done and make
-Issue #2 Ready. Issue #1 remains in Review; no commit, push, merge or implementation
-is performed by this revision task.
-
-Technical references supporting the proposal (not pinned dependency versions):
-
-- [PostgreSQL unique indexes](https://www.postgresql.org/docs/18/indexes-unique.html): constraints create their own indexes.
-- [PostgreSQL timestamps](https://www.postgresql.org/docs/current/datatype-datetime.html): timestamptz represents instants and displays in the session timezone.
+- [PostgreSQL unique indexes](https://www.postgresql.org/docs/17/indexes-unique.html): constraints create their own indexes.
+- [PostgreSQL timestamps](https://www.postgresql.org/docs/17/datatype-datetime.html): timestamptz represents instants and displays in the session timezone.
 - [Spring transaction propagation](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html): REQUIRES_NEW establishes independent physical transactions.
 - [Spring transactional annotations](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html): proxy interception and self-invocation considerations.
 - [HTTP semantics](https://www.rfc-editor.org/rfc/rfc9110.html): status and Location semantics used by the API.

@@ -1,12 +1,9 @@
 # V1 domain rules and code allocation
 
-**Status: Code generation, alias rules, collision policy, URL validation,
-expiration, hard deletion and reuse were approved through closed Issue #1.**
-Implementation is on the V1 review stack; final acceptance remains human-owned. Issue #1,
-17 October 2026. Companion documents: [API](api-contract.md),
-[persistence and review](persistence-design.md). Approval records the architectural
-decisions; it does not accept these documentation revisions or authorise starting
-later issues in this task.
+The domain rules define the shared code namespace, destination validation,
+expiration and hard deletion. Companion documents describe the
+[API contract](api-contract.md), [persistence design](persistence-design.md) and
+[correctness rationale](correctness-review.md).
 
 ## ShortLink and destination validation
 
@@ -20,7 +17,7 @@ host (DNS name, IPv4 or bracketed IPv6), no user-info, and an absent port or por
 1–65535. Reject whitespace, control characters, backslashes, malformed percent
 escapes, relative/opaque URLs and all other schemes. International host names
 must be supplied in ASCII punycode and non-ASCII path/query/fragment characters
-percent-encoded. Use URI parsing, not a single URL regex; define API tests for
+percent-encoded. URI parsing and focused host checks implement these rules; API tests cover
 host parsing with the selected Java version. Do not trim, rewrite, lowercase or
 truncate the supplied destination. Preserve it for `Location` and metadata.
 
@@ -75,7 +72,7 @@ for expired rows. These unauthenticated operations are approved for a local-deve
 and portfolio demonstration; they expose destinations and allow deletion without
 an ownership check. The design is unsuitable for unrestricted public deployment
 without additional security controls. No security mechanism or deployment
-restriction is implemented in this issue.
+restriction is included in V1.
 
 ## Generated collisions and concurrency
 
@@ -108,8 +105,8 @@ custom values increase occupancy). This is not the probability that any historic
 collision has occurred. Correctness comes from PostgreSQL and retries, not this
 estimate. SecureRandom avoids predictable counters and biased modulo reduction;
 codes are not security credentials. Five attempts bound work, not database wait
-time. Configure ordinary connection/statement timeouts during later infrastructure
-work; no busy loop, distributed lock, Redis or extra infrastructure is needed.
+time. V1 does not promise a total request-time bound; there is no busy loop,
+distributed lock, Redis or extra infrastructure.
 
 Counter/Base62 encodings remove random collision retries but expose sequence and
 couple codes to ID allocation. Hashing destinations creates duplicate/collision
@@ -154,16 +151,10 @@ A resolution that reads the row before a concurrent deletion commits may finish
 with `302` or `410`; already issued redirects cannot be revoked. A fresh lookup
 after a committed deletion returns `404` unless a new row has reused the code.
 Expiration is evaluated at the documented sample, not the time the client follows
-the redirect. No locks spanning HTTP response delivery are proposed.
+the redirect. No locks span HTTP response delivery.
 
-## Compatibility and approval
+## Scope
 
-These choices refine `PROJECT.md` Functional Requirements 2–7 and 11–16, Data Model
-Direction and Technical Requirements. Optional expiration, custom aliases and
-hard deletion stay within scope. No unresolved contradiction was found. The owner
-has approved the generation and alias rules, shared case-sensitive uniqueness,
-URL validation limits, bounded independent-transaction retries, expiration rules,
-accessible expired metadata, unauthenticated deletion, and code reuse. The
-implementation and complete V1 project still await final human verification;
-see the execution ledger for the current review stack. Issue #1's original
-documentation review has since been completed and merged.
+These rules implement `PROJECT.md` Functional Requirements 2–7 and 11–16.
+Optional expiration, custom aliases and hard deletion share the same small model.
+There are no accounts, analytics, tombstones or background expiration jobs.

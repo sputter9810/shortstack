@@ -1,15 +1,9 @@
 # V1 API contract
 
-**Status: Architectural decisions approved through closed Issue #1.** This contract
-is implemented on the V1 review stack; cumulative acceptance and merge remain
-human-controlled. Originally prepared for
-[Issue #1](https://github.com/sputter9810/shortstack/issues/1), 17 October 2026.
-No application behaviour is implemented by this document. Read with
-[domain rules](domain-design.md) and [persistence and review](persistence-design.md).
-`PROJECT.md` remains authoritative. V1 uses `/api/links`, without a `/v1` prefix,
-as outlined in its API Design Direction; version here denotes scope. Approval
-scope and retained details requiring final verification are recorded in
-[the review handover](persistence-design.md#review-handover-and-source-documents).
+The implemented HTTP contract covers creation, metadata, resolution and hard
+deletion. Read it with [domain rules](domain-design.md) and
+[persistence design](persistence-design.md). [PROJECT.md](../PROJECT.md) defines
+scope. V1 uses `/api/links`, without a `/v1` prefix; version here denotes scope.
 
 ## Intended use and unauthenticated access
 
@@ -19,7 +13,7 @@ a short code can retrieve its destination and metadata, including expired metada
 or permanently delete the link. A short code is not an authorisation credential.
 This design is unsuitable for unrestricted public deployment without additional
 security controls. No authentication, API keys, authorisation or deployment
-restrictions are introduced by this documentation revision.
+restrictions are included in V1.
 
 ## Operations
 
@@ -31,7 +25,7 @@ restrictions are introduced by this documentation revision.
 | `GET /{code}` | `302 Found`, destination in `Location`, empty body | `404 Not Found` | `410 Gone`, error JSON, no `Location` |
 
 These four operations cover creation, metadata, resolution, aliases, expiration
-and hard deletion. No listing, updating, analytics, accounts or UI is proposed.
+and hard deletion. No listing, updating, analytics, accounts or UI is included.
 Lookup and deletion match codes exactly; see domain validation for malformed paths.
 All application responses use `Cache-Control: no-store`, including redirects and
 errors, so clients and intermediaries are instructed not to cache stale redirects,
@@ -222,10 +216,10 @@ Example validation body for `{"destinationUrl":"ftp://example.org/file","customA
 ```
 
 Transport/proxy failures before application dispatch cannot guarantee this JSON
-envelope. Framework-generated errors inside the application should be centralised.
+envelope. Framework-generated errors inside the application use centralised mapping.
 HEAD, if supplied automatically by Spring for GET, follows GET status/headers and
 suppresses the body; OPTIONS may advertise supported methods. Neither adds a new
-business operation. No POST redirect or mutation-by-GET is proposed.
+business operation. POST redirects and mutation-by-GET are outside this contract.
 
 ## Decision rationale and compatibility
 
@@ -236,11 +230,8 @@ link's unavailable redirect. `204` avoids inventing a deletion DTO; returning `2
 also for unknown codes is a reasonable alternative, but `404` provides explicit
 feedback. A compact custom error DTO avoids requiring a problem-type URI registry;
 RFC 9457 Problem Details was an alternative considered during design; the existing
-DTO representation is retained for final documentation verification.
+DTO representation keeps the error contract compact and consistent.
 
-All choices refine `PROJECT.md` Functional Requirements 1–17 and API Design
-Direction. No recommended endpoint or status is changed; expired metadata is
-explicitly distinguished from expired resolution. The owner's approved decisions
-are recorded in the review handover; this revision does not change endpoint paths,
-status codes or DTO representations, or claim final acceptance of Issue #1.
+These choices implement `PROJECT.md` Functional Requirements 1–17. Expired
+metadata remains readable while expired resolution is unavailable.
 HTTP semantics reference: [RFC 9110, sections 10.2.2 and 15](https://www.rfc-editor.org/rfc/rfc9110.html).
