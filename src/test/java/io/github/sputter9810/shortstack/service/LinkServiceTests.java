@@ -20,7 +20,7 @@ class LinkServiceTests {
         GeneratedLinkService generated = mock(GeneratedLinkService.class);
         when(generated.create("https://example.org/a?b=1#c", now, null))
                 .thenReturn(new ShortLink("AbCd1234", "https://example.org/a?b=1#c", now, null));
-        LinkService service = new LinkService(generated, mock(ShortLinkRepository.class),
+        LinkService service = new LinkService(generated, mock(ShortLinkRepository.class), mock(io.github.sputter9810.shortstack.persistence.GeneratedLinkInserter.class),
                 Clock.fixed(now.plusNanos(789), ZoneOffset.UTC), "https://sho.rt");
 
         var result = service.create("https://example.org/a?b=1#c");

@@ -21,7 +21,7 @@ public class LinkController {
 
     @PostMapping(consumes = "application/json", produces = "application/json")
     public ResponseEntity<LinkMetadata> create(@RequestBody CreateLinkRequest request) {
-        LinkMetadata result = links.create(request.destinationUrl());
+        LinkMetadata result = links.create(request.destinationUrl(), request.customAlias());
         return ResponseEntity.created(links.metadataLocation(result.code())).cacheControl(CacheControl.noStore()).body(result);
     }
 

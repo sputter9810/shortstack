@@ -46,7 +46,7 @@ public class GeneratedLinkService {
         throw new IllegalStateException("Insertion attempt limit must be positive.");
     }
 
-    private static boolean isCodeCollision(Throwable failure) {
+    static boolean isCodeCollision(Throwable failure) {
         Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Throwable cause = failure; cause != null && visited.add(cause); cause = cause.getCause()) {
             if (cause instanceof ConstraintViolationException violation

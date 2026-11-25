@@ -24,7 +24,7 @@ class MetadataTests {
         ShortLinkRepository repository = mock(ShortLinkRepository.class);
         when(repository.findByCode("AbCd1234")).thenReturn(Optional.of(
                 new ShortLink("AbCd1234", "https://example.org", clock.instant(), null)));
-        LinkService service = new LinkService(mock(GeneratedLinkService.class), repository, clock, "https://sho.rt");
+        LinkService service = new LinkService(mock(GeneratedLinkService.class), repository, mock(io.github.sputter9810.shortstack.persistence.GeneratedLinkInserter.class), clock, "https://sho.rt");
         assertThat(service.get("AbCd1234").destinationUrl()).isEqualTo("https://example.org");
         MockMvcBuilders.standaloneSetup(new LinkController(service)).build()
                 .perform(get("/api/links/AbCd1234")).andExpect(status().isOk())
@@ -37,7 +37,7 @@ class MetadataTests {
     void missingMetadataReturnsStructured404() throws Exception {
         ShortLinkRepository repository = mock(ShortLinkRepository.class);
         when(repository.findByCode("missing-code")).thenReturn(Optional.empty());
-        LinkService service = new LinkService(mock(GeneratedLinkService.class), repository, clock, "https://sho.rt");
+        LinkService service = new LinkService(mock(GeneratedLinkService.class), repository, mock(io.github.sputter9810.shortstack.persistence.GeneratedLinkInserter.class), clock, "https://sho.rt");
         MockMvcBuilders.standaloneSetup(new LinkController(service)).setControllerAdvice(new ApiExceptionHandler(clock)).build()
                 .perform(get("/api/links/missing-code")).andExpect(status().isNotFound())
                 .andExpect(header().doesNotExist("Location"))
