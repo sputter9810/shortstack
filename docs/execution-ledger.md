@@ -27,17 +27,17 @@ The live issue remains the authoritative full acceptance checklist.
 
 | Issue / owner | Objective and expected changes | Dependencies | Tests / documentation / risks and human gates | State |
 |---|---|---|---|---|
-| 7 creation / pair | POST DTOs, creation service, controller, configured base URL, clock | 1–6 | Unit + HTTP creation, persistence delegation, 201/Location/metadata; README; no API redesign | In Progress |
-| 8 metadata / ai | Exact lookup, metadata DTO, missing 404 | 7 | Unit + HTTP found/missing/no redirect; README; expiry completed in 11 | Planned |
-| 9 redirect / pair | Service resolution and GET redirect | 8 | Unit + HTTP 302/Location/missing; preserve query/fragment; expiry completed in 11 | Planned |
-| 10 aliases / pair | Optional alias, syntax/reserved rules, one insert, conflict | 7–9 | Unit + HTTP generated/custom/invalid/conflict; shared DB uniqueness; no retry of aliases | Planned |
-| 11 expiration / pair | Optional timestamp, fixed clock sample, derived expiry | 7–10 | UTC/microsecond input + boundary tests; 410 redirect, 200 metadata; no cleanup job | Planned |
-| 12 deletion / pair | Atomic delete count, DELETE endpoint | 8–11 | Unit + HTTP absent/repeated/expired/reuse; no soft delete | Planned |
-| 13 validation/errors / pair | Complete URI/JSON/code/time validation and central error envelope | 7–12 | Failure matrix + headers/media/framework cases; sanitised failures; approved rules only | Planned |
-| 14 integration / pair | Extend existing PostgreSQL tests across complete operations | 7–13 | Real Flyway/constraints/timestamps/commits; cleanup only owned rows; no new dependency | Planned |
-| 15 correctness / pair | Concurrency review + deterministic regression tests | 7–14 | Coordinated races, transaction/deletion/expiry review; Sam explanation gate remains pending | Planned |
-| 16 documentation / pair | Accurate README, API examples, setup/testing/limitations | 7–15 | Execute examples and clean configuration; Sam reviews explanations | Planned |
-| 17 final review / sam | Evidence, retrospective draft, acceptance checklist | 1–16 | Full build/startup/E2E; human code review, licence, roadmap and final approval cannot be invented | Human acceptance required |
+| 7 creation / pair | POST DTOs, creation service, controller, configured base URL, clock | 1–6 | Unit + HTTP creation, persistence delegation, 201/Location/metadata; README; no API redesign | Review |
+| 8 metadata / ai | Exact lookup, metadata DTO, missing 404 | 7 | Unit + HTTP found/missing/no redirect; README; expiry completed in 11 | Review |
+| 9 redirect / pair | Service resolution and GET redirect | 8 | Unit + HTTP 302/Location/missing; preserve query/fragment; expiry completed in 11 | Review |
+| 10 aliases / pair | Optional alias, syntax/reserved rules, one insert, conflict | 7–9 | Unit + HTTP generated/custom/invalid/conflict; shared DB uniqueness; no retry of aliases | Review |
+| 11 expiration / pair | Optional timestamp, fixed clock sample, derived expiry | 7–10 | UTC/microsecond input + boundary tests; 410 redirect, 200 metadata; no cleanup job | Review |
+| 12 deletion / pair | Atomic delete count, DELETE endpoint | 8–11 | Unit + HTTP absent/repeated/expired/reuse; no soft delete | Review |
+| 13 validation/errors / pair | Complete URI/JSON/code/time validation and central error envelope | 7–12 | Failure matrix + headers/media/framework cases; sanitised failures; approved rules only | Review |
+| 14 integration / pair | Extend existing PostgreSQL tests across complete operations | 7–13 | Real Flyway/constraints/timestamps/commits; cleanup only owned rows; no new dependency | Review |
+| 15 correctness / pair | Concurrency review + deterministic regression tests | 7–14 | Coordinated races, transaction/deletion/expiry review; Sam explanation gate remains pending | Review |
+| 16 documentation / pair | Accurate README, API examples, setup/testing/limitations | 7–15 | Execute examples and clean configuration; Sam reviews explanations | Review |
+| 17 final review / sam | Evidence, retrospective draft, acceptance checklist | 1–16 | Full build/startup/E2E; human code review, licence, roadmap and final approval cannot be invented | Blocked: human gates |
 
 ## Material routine decisions
 
@@ -125,3 +125,13 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - Clean tracked-source archive had no target or .env. A separate new PostgreSQL Compose project and explicit temporary environment were used: Java21 clean verify passed 130 tests, zero failed/skipped.
 - Clean-archive JAR started, Flyway reported up-to-date; 10 real HTTP requests verified generated creation, metadata, redirect/query-fragment, alias/conflict, invalid/missing and deletion; no-store checked throughout.
 - Local Markdown links and whitespace checked. Sam still reviews architecture explanations. No licence or final project acceptance invented.
+
+### Issue 17 — final review evidence (human-blocked)
+
+- Parent feature/issue-16-documentation at 714de44, PR #33. Supporting handoff and retrospective draft prepared; not claimed complete or Review-ready.
+- Final cumulative Java21/PostgreSQL clean verification: 130 passed, zero failed/errors/skipped (60 unit/standalone, 70 Spring-context cases).
+- Clean-source reproduction also passed 130; ten manual HTTP requests and a real isolated PostgreSQL outage (sanitised 503) passed.
+- Only PR #24 has actual hosted success; PRs #25–#33 target feature parents and have no CI run. Required hosted checks remain after retargeting.
+- Test row counts zero and temporary schemas absent. Clean-test project/volume removed; development service stopped, original volume retained.
+- Owner code review/explanation, licence/presentation, roadmap outcome and explicit completion approval remain pending. External roadmap/repositories untouched.
+- All implementation deliverables 7–16 are Review; 17 is Blocked with a draft evidence PR. No issue closed/Done, PR merged, main push, force-push or branch deletion.

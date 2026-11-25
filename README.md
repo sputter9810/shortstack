@@ -122,7 +122,7 @@ $link = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/links `
 $link
 Invoke-RestMethod -Uri "http://localhost:8080/api/links/$($link.code)"
 curl.exe --include "http://localhost:8080/$($link.code)"
-Invoke-WebRequest -Method Delete -Uri "http://localhost:8080/api/links/$($link.code)"
+Invoke-WebRequest -UseBasicParsing -Method Delete -Uri "http://localhost:8080/api/links/$($link.code)"
 ```
 
 Creation returns `201`, JSON metadata and a `Location` identifying the metadata
@@ -141,7 +141,7 @@ $aliasBody = @{
 } | ConvertTo-Json
 $aliasLink = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/links `
     -ContentType application/json -Body $aliasBody
-Invoke-WebRequest -Method Delete -Uri "http://localhost:8080/api/links/$($aliasLink.code)"
+Invoke-WebRequest -UseBasicParsing -Method Delete -Uri "http://localhost:8080/api/links/$($aliasLink.code)"
 ```
 
 | Operation | Success | Missing/deleted | Existing expired row |
@@ -334,3 +334,6 @@ limiting infrastructure. It does not promise exactly-once POST delivery or revok
 redirects already read before deletion. Licensing and final portfolio acceptance
 remain owner decisions; no licence is silently selected by the implementation.
 See [the execution ledger](docs/execution-ledger.md) for the review stack and gates.
+The [autonomous handoff](docs/autonomous-handoff.md) records measured verification,
+per-issue results and the proposed human merge sequence. The
+[retrospective draft](docs/retrospective-draft.md) awaits Sam's reflection and review.
