@@ -104,3 +104,10 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - Central advice preserves framework statuses/Allow; custom fallback error controller and no-store filter keep application errors consistent. Exhaustion/unavailability 503; unexpected failures sanitised 500.
 - Full Java21/PostgreSQL verification: 119 passed, zero failed/skipped. Matrix covers URL/JSON/time/alias/code/media/method/fault cases. All seven criteria supported.
 - Existing dependencies and Flyway schema unchanged; Jackson3 converter configured using the installed supported API.
+
+### Issue 14 — PostgreSQL integration
+- Parent feature/issue-13-validation-errors at a80551d, PR #30.
+- Added real random-port HTTP/PostgreSQL lifecycle, alias/expiration, redirect and expired-row tests with owned-record cleanup.
+- Flyway applies V1 to a fresh uniquely owned schema; second migrate executes zero changes. Catalogue checks verify columns, identity, timestamps and all named constraints; schema removed in finally.
+- Full verification: 123 passed, zero failed/skipped. Existing repository/collision tests retained. No new dependencies or test architecture.
+- Local acceptance checks pass; CI is configured to discover all tests, but hosted verification of this stacked branch remains pending main retargeting (not reported as a pass).

@@ -246,3 +246,4 @@ POST accepts optional customAlias: 3–32 ASCII letters, digits, underscores or 
 POST accepts optional expiresAt (RFC 3339 with explicit offset, at most six fractional digits, strictly future). Expired redirects return 410; metadata stays available with expired=true.
 DELETE /api/links/{code} hard-deletes active or expired links with empty 204; absent/repeated deletion returns 404. Deleted codes may be reused.
 Request JSON rejects unknown fields and non-string field values. Invalid URL/alias/expiration values use VALIDATION_FAILED; malformed JSON uses INVALID_REQUEST. Application errors use the documented sanitized envelope and no-store.
+Full clean verify includes real HTTP/PostgreSQL lifecycle tests and a Flyway test using an isolated temporary schema. These tests require the configured development login to create/drop its own test schema (the provided local Compose login supports this).
