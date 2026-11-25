@@ -24,4 +24,10 @@ public final class CodeRules {
                     "Must contain 3 to 32 ASCII letters, digits, underscores or hyphens and must not be reserved.");
         }
     }
+
+    public static void validateLookup(String code) {
+        if (!valid(code)) {
+            throw new InvalidCodeException(false);
+        }
+    }
 }
