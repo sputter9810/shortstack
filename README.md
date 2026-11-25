@@ -241,4 +241,4 @@ unauthenticated API design is unsuitable for unrestricted public deployment
 without additional security controls.
 
 GET /api/links/{code} returns stored metadata with 200, or a structured LINK_NOT_FOUND 404. It does not redirect.
-
+GET /{code} returns an empty 302 redirect to the stored destination; missing links return 404 without Location.

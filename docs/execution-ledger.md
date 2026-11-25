@@ -73,3 +73,8 @@ are appended as each deliverable becomes reviewable. Final acceptance remains hu
 - Full verification: 38 passed, zero failed/skipped; found/missing HTTP and service paths covered. All six criteria supported.
 - Branch feature/issue-8-metadata; expiry completion deferred to 11. No schema/dependency changes.
 
+### Issue 9 — redirects
+- Parent feature/issue-8-metadata at a4ece20, PR #25; parent PR targets feature-7 (no hosted run expected).
+- Public GET delegates to service; 302 uses stored destination including query/fragment and ignores incoming query.
+- Full verification: 40 passed, zero failed/skipped. Redirect/missing paths covered; all six criteria supported.
+- Corrected trailing blank lines accidentally included in issue-8 documentation; no history rewrite.
